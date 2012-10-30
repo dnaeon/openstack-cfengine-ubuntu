@@ -1,0 +1,70 @@
+#########################################################################
+#                                                                       #
+# 		promises.cf - main Cfengine 3 configuration file  	#
+#			      	   	      		    		#
+#########################################################################
+
+body common control {
+    
+    any::
+
+	bundlesequence => { @(g.bundlesequence) };
+    
+    example_org_hosts::
+	
+	domain => "example.org";
+
+    any:: 
+
+	inputs => {
+	    "update.cf",
+	    "library.cf",
+	    "classes.cf",
+	    "cf-execd.cf",
+	    "cf-serverd.cf",
+	    "cf-report.cf",
+	    "domain.cf",
+	    "cleanup.cf",
+	    "mysql.cf",
+	    "apt.cf",
+	    "firewall.cf",
+	    "packages.cf",
+	    "kvm.cf",
+	    "rabbitmq.cf",
+	    "openstack-keystone.cf",
+	    "openstack-glance.cf",
+	    "openstack-quantum.cf",
+	    "openstack-nova.cf",
+	    "openstack-cinder.cf",
+	    "openstack-horizon.cf",
+	    "openvswitch.cf",
+	    "glusterfs.cf"
+	};
+
+    output_prefix => "cf3>";
+}
+
+# global vars
+bundle common g {
+	
+vars:
+
+    "workdir"		string => "/var/cfengine";
+    "masterfiles"	string => "$(workdir)/masterfiles";
+    "inputfiles"	string => "$(workdir)/inputs";
+    "policyhost"	string => "cfengine.example.org";
+    "bundlesequence"	slist  => { 
+    			       	    "apt",
+    			       	    "update",		"executor",		"server", 
+				    "domain", 		"cleanup",		"mysql",
+				    "firewall",		"packages",		"kvm",
+				    "rabbitmq",		"openstack_keystone",	"openstack_glance",
+				    "openvswitch",	"openstack_quantum",	"openstack_nova",
+				    "openstack_cinder",	"openstack_horizon",	"glusterfs"
+				  };
+}
+
+body runagent control {
+    hosts => { "127.0.0.1", "192.168.1.0/24" };
+}
+
