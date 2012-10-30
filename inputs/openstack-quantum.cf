@@ -1,0 +1,227 @@
+#########################################################################
+#                                                                       #
+# 		openstack-quantum.cf - OpenStack Networking Service	#
+#                                                                       #
+#########################################################################
+
+bundle agent openstack_quantum {
+
+classes:
+
+	#
+	# OpenStack Quantum  in Ubuntu uses Upstart, so we can't use chkconfig(8) here
+	# We check if a service is disabled by looking for the 'manual' keyword in /etc/init/SERVICE.override file
+	#
+	"quantum_server_is_disabled"		expression   => regline("^manual$", "/etc/init/quantum-server.override");
+	"quantum_server_is_enabled"    		not	     => "quantum_server_is_disabled";
+
+	"quantum_l3_agent_is_disabled"		expression   => regline("^manual$", "/etc/init/quantum-l3-agent.override");
+	"quantum_l3_agent_is_enabled"  		not	     => "quantum_l3_agent_is_disabled";
+
+	"quantum_dhcp_agent_is_disabled"	expression   => regline("^manual$", "/etc/init/quantum-dhcp-agent.override");
+	"quantum_dhcp_agent_is_enabled"		not	     => "quantum_dhcp_agent_is_disabled";
+
+	"quantum_ovs_agent_is_disabled"		expression   => regline("^manual$", "/etc/init/quantum-plugin-openvswitch-agent.override");
+	"quantum_ovs_agent_is_enabled" 		not	     => "quantum_ovs_agent_is_disabled";
+
+files:
+	
+	#
+	# Make sure that Quantum Server, L3 Agent and DHCP Agent are disabled on the OpenStack nodes,
+	# except for the cluster controllers
+	# 
+	!openstack_controllers.(openstack_nodes.quantum_server_is_enabled)::
+
+		"/etc/init/quantum-server.override"
+
+		comment		=> "Disable Quantum Server on the OpenStack nodes, except for the cluster controllers",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> append_if_no_line("manual"),
+		classes		=> if_repaired("stop_quantum_server");
+
+		"/etc/init/quantum-l3-agent.override"
+
+		comment		=> "Disable Quantum L3 Agent on the OpenStack nodes, except for the cluster controllers",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> append_if_no_line("manual"),
+		classes		=> if_repaired("stop_quantum_l3_agent");
+
+		"/etc/init/quantum-dhcp-agent.override"
+
+		comment		=> "Disable Quantum DHCP Agent on the OpenStack nodes, except for the cluster controllers",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> append_if_no_line("manual"),
+		classes		=> if_repaired("stop_quantum_dhcp_agent");
+
+	#
+	# Make sure that Quantum Server, L3 Agent and DHCP Agent are enabled on the cluster controllers.
+	# We need this, as during a switchover one of the nodes might have been
+	# a node previously, so we make sure that Quantum Server, L3 Agent and DHCP Agent are enabled on the 
+	# newly promoted controller
+	#
+	openstack_controllers.quantum_server_is_disabled::
+
+		"/etc/init/quantum-server.override"
+
+		comment		=> "Enable Quantum Server on the OpenStack controllers",
+		perms		=> mog("0644","root", "root"),
+		edit_line	=> delete_lines_matching("^manual$"),
+		classes		=> if_repaired("start_quantum_server");
+
+	openstack_controllers.quantum_l3_agent_is_disabled::
+
+		"/etc/init/quantum-l3-agent.override"
+
+		comment		=> "Enable Quantum L3 Agent on the OpenStack controllers",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> delete_lines_matching("^manual$"),
+		classes		=> if_repaired("start_quantum_l3_agent");
+
+	openstack_controllers.quantum_dhcp_agent_is_disabled::
+
+		"/etc/init/quantum-dhcp-agent.override"
+
+		comment		=> "Enable Quantum DHCP Agent on the OpenStack controllers",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> delete_lines_matching("^manual$"),
+		classes		=> if_repaired("start_quantum_dhcp_agent");
+
+	openstack_controllers::
+
+		"/etc/quantum/api-paste.ini"
+
+		comment		=> "Deploy Quantum api-paste.ini file to the OpenStack nodes",
+		perms		=> mog("0644", "quantum", "quantum"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/quantum/api-paste.ini", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_quantum_server");
+
+		"/etc/quantum/l3_agent.ini"
+
+		comment		=> "Deploy Quantum l3_agent.ini file to the OpenStack nodes",
+		perms		=> mog("0644", "quantum", "quantum"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/quantum/l3_agent.ini", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_quantum_l3_agent");
+
+	openstack_nodes::
+
+		"/etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini"
+
+		comment		=> "Deploy Quantum Open vSwitch Plugin configuration",
+		perms		=> mog("0644", "quantum", "quantum"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/quantum/plugins/openvswitch/ovs_quantum_plugin.ini", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_quantum_server");
+
+processes:
+
+	openstack_controllers::
+
+		"quantum-server"
+
+		comment		=> "Make sure that Quantum Server runs on the OpenStack controllers",
+		restart_class	=> "restart_quantum_server";
+
+		"quantum-l3-agent"
+
+		comment		=> "Make sure that Quantum L3 Agent runs on the OpenStack controllers",
+		restart_class	=> "restart_quantum_l3_agent";
+
+		"quantum-dhcp-agent"
+
+		comment		=> "Make sure that Quantum DHCP Agent runs on the OpenStack controllers",
+		restart_class	=> "restart_quantum_dhcp_agent";
+
+	openstack_nodes::
+
+		"quantum-openvswitch-agent"
+
+		comment		=> "Make sure that Quantum Open vSwitch Agent runs on the OpenStack nodes",
+		restart_class	=> "restart_quantum_ovs_agent";
+
+commands:
+
+	stop_quantum_server::
+
+		"/usr/sbin/service quantum-server stop";
+
+	start_quantum_server::
+
+		"/usr/sbin/service quantum-server start";
+
+	restart_quantum_server::
+
+		"/usr/sbin/service quantum-server restart";
+
+	stop_quantum_l3_agent::
+
+		"/usr/sbin/service quantum-l3-agent stop";
+
+	start_quantum_l3_agent::
+
+		"/usr/sbin/service quantum-l3-agent start";
+	
+	restart_quantum_l3_agent::
+
+		"/usr/sbin/service quantum-l3-agent restart";
+
+	stop_quantum_dhcp_agent::
+
+		"/usr/sbin/service quantum-dhcp-agent stop";
+	
+	start_quantum_dhcp_agent::
+
+		"/usr/sbin/service quantum-dhcp-agent start";
+
+	restart_quantum_dhcp_agent::
+
+		"/usr/sbin/service quantum-dhcp-agent restart";
+
+	stop_quantum_ovs_agent::
+
+		"/usr/sbin/service quantum-plugin-openvswitch-agent stop";
+
+	start_quantum_ovs_agent::
+
+		"/usr/sbin/service quantum-plugin-openvswitch-agent start";
+
+	restart_quantum_ovs_agent::
+
+		"/usr/sbin/service quantum-plugin-openvswitch-agent restart";
+
+packages:
+
+	openstack_nodes::
+
+	"quantum-server"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"python-cliff"
+	
+		package_policy	=> "add",
+		package_version	=> "1.1.2-0ubuntu2~cloud0",
+		package_method	=> generic;
+
+	"python-pyparsing"
+	
+		package_policy	=> "add",
+		package_version	=> "1.5.2-2ubuntu1",
+		package_method	=> generic;
+
+
+	"quantum-plugin-openvswitch"
+
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"quantum-plugin-openvswitch-agent"
+
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+}
