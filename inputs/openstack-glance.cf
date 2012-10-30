@@ -1,0 +1,154 @@
+#########################################################################
+#                                                                       #
+# 		openstack-glance.cf - OpenStack Image Service		#
+#                                                                       #
+#########################################################################
+
+bundle agent openstack_glance {
+
+classes:
+
+	#
+	# OpenStack Glance in Ubuntu uses Upstart, so we can't use chkconfig(8) here
+	# We check if a service is disabled by looking for the 'manual' keyword in /etc/init/SERVICE.override file
+	#
+	"glance_api_is_disabled"      expression   => regline("^manual$", "/etc/init/glance-api.override");
+	"glance_api_is_enabled"       not	   => "glance_api_is_disabled";
+
+	"glance_registry_is_disabled" expression   => regline("^manual$", "/etc/init/glance-registry.override");
+	"glance_registry_is_enabled"  not	   => "glance_registry_is_disabled";
+
+files:
+	
+	#
+	# Make sure that Glance API and Registry are disabled on the OpenStack nodes,
+	# expect for the cluster controller
+	# 
+	!openstack_controllers.(openstack_nodes.glance_api_is_enabled)::
+
+		"/etc/init/glance-api.override"
+
+		comment		=> "Disable Glance API on the OpenStack nodes, except for the cluster controllers",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> append_if_no_line("manual"),
+		classes		=> if_repaired("stop_glance_api");
+
+		"/etc/init/glance-registry.override"
+
+		comment		=> "Disable Glance Registry on the OpenStack nodes, except for the cluster controllers",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> append_if_no_line("manual"),
+		classes		=> if_repaired("stop_glance_registry");
+
+
+	#
+	# Make sure that Glance API and Registry are enabled on the cluster controllers
+	# We need this, as during a switchover one of the nodes might have been
+	# a node previously, so we make sure that Glance API and Registry are enabled on the 
+	# newly promoted controller
+	#
+	openstack_controllers.glance_api_is_disabled::
+
+		"/etc/init/glance-api.override"
+
+		comment		=> "Enable Glance API on the OpenStack controllers",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> delete_lines_matching("^manual$"),
+		classes		=> if_repaired("start_glance_api");
+
+	openstack_controllers.glance_registry_is_disabled::
+
+		"/etc/init/glance-registry.override"
+
+		comment		=> "Enable Glance Registry on the OpenStack controllers",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> delete_lines_matching("^manual$"),
+		classes		=> if_repaired("start_glance_registry");
+
+	openstack_nodes::
+
+		"/etc/glance/glance-api.conf"
+
+                comment         => "Configure the MySQL connection string for the OpenStack Glance Service",
+                perms           => mog("0644", "glance", "glance"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/glance/glance-api.conf", "$(g.policyhost)"),
+                classes         => if_repaired("restart_glance_api");
+
+		"/etc/glance/glance-api-paste.ini"
+
+		comment		=> "Deploy glance-api-paste.ini to the OpenStack controllers",
+		perms		=> mog("0644", "glance", "glance"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/glance/glance-api-paste.ini", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_glance_api");
+
+		"/etc/glance/glance-registry-paste.ini"
+
+		comment		=> "Deploy glance-registry-paste.ini to the OpenStack controllers",
+		perms		=> mog("0644", "glance", "glance"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/glance/glance-registry-paste.ini", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_glance_registry");
+
+processes:
+
+	openstack_controllers::
+
+		"glance-api"
+
+		comment		=> "Make sure that Glance API runs on the OpenStack controllers",
+		restart_class	=> "restart_glance_api";
+
+		"glance-registry"
+
+		comment		=> "Make sure that Glance Registry runs on the OpenStack controllers",
+		restart_class	=> "restart_glance_registry";
+
+commands:
+
+	stop_glance_api::
+
+		"/usr/sbin/service glance-api stop";
+
+	start_glance_api::
+
+		"/usr/sbin/service glance-api start";
+
+	restart_glance_api::
+
+		"/usr/sbin/service glance-api restart";
+
+	stop_glance_registry::
+
+		"/usr/sbin/service glance-registry stop";
+
+	start_glance_registry::
+
+		"/usr/sbin/service glance-registry start";
+	
+	restart_glance_registry::
+
+		"/usr/sbin/service glance-registry restart";
+
+packages:
+
+	openstack_nodes::
+
+	"glance"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"python-glance"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"python-glanceclient"
+	
+		package_policy	=> "add",
+		package_version	=> "1:0.4.1-0ubuntu1~cloud0",
+		package_method	=> generic;
+}
