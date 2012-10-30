@@ -1,0 +1,23 @@
+#########################################################################
+#                                                                       #
+# 		apt - apt specific configurations		      	#
+#                                                                       #
+#########################################################################
+
+bundle agent apt { 
+
+files:
+
+	"/etc/apt/sources.list.d/folsom.list"
+
+	comment		=> "Copy OpenStack Folsom sources list",
+	perms		=> mog("0444", "root", "root"),
+	copy_from	=> remote_copy("$(g.masterfiles)/apt/folsom.list-ubuntu", "$(g.policyhost)"),
+	classes		=> if_repaired("ubuntu_add_folsom_key");
+
+commands:
+
+	ubuntu_add_folsom_key::
+
+	"/usr/bin/apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 5EDB1B62EC4926EA";
+}
