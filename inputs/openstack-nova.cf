@@ -1,0 +1,374 @@
+#########################################################################
+#                                                                       #
+# 		openstack-nova.cf - OpenStack Compute Service		#
+#                                                                       #
+#########################################################################
+
+bundle agent openstack_nova {
+
+classes:
+
+        #
+        # OpenStack Nova in Ubuntu uses Upstart, so we can't use chkconfig(8) here
+        # We check if a service is disabled by looking for the 'manual' keyword in /etc/init/SERVICE.override file
+        #
+        "nova_api_is_disabled"		expression   => regline("^manual$", "/etc/init/nova-api.override");
+        "nova_api_is_enabled"		not          => "nova_api_is_disabled";
+
+        "nova_cert_is_disabled" 	expression   => regline("^manual$", "/etc/init/nova-cert.override");
+        "nova_cert_is_enabled"  	not          => "nova_cert_is_disabled";
+
+        "nova_compute_is_disabled" 	expression   => regline("^manual$", "/etc/init/nova-compute.override");
+        "nova_cert_is_enabled"  	not          => "nova_compute_is_disabled";
+
+        "nova_consoleauth_is_disabled" 	expression   => regline("^manual$", "/etc/init/nova-consoleauth.override");
+        "nova_consoleauth_is_enabled"  	not          => "nova_consoleauth_is_disabled";
+
+        "nova_novncproxy_is_disabled" 	expression   => regline("^manual$", "/etc/init/nova-novncproxy.override");
+        "nova_novncproxy_is_enabled"  	not          => "nova_novncproxy_is_disabled";
+
+        "nova_scheduler_is_disabled" 	expression   => regline("^manual$", "/etc/init/nova-scheduler.override");
+        "nova_scheduler_is_enabled"  	not          => "nova_scheduler_is_disabled";
+
+files:
+        
+        #
+        # Make sure that Nova API runs only on the OpenStack controllers
+	#
+        !openstack_controllers.(openstack_nodes.nova_api_is_enabled)::
+
+                "/etc/init/nova-api.override"
+
+                comment         => "Disable Nova API on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_nova_api");
+
+        #
+        # Make sure that Nova Cert runs only on the OpenStack controllers
+        # 
+        !openstack_controllers.(openstack_nodes.nova_cert_is_enabled)::
+
+                "/etc/init/nova-cert.override"
+
+                comment         => "Disable Nova Cert on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_nova_cert");
+
+       	#
+        # Make sure that Nova ConsoleAuth runs only on the OpenStack controllers
+        # 
+        !openstack_controllers.(openstack_nodes.nova_consoleauth_is_enabled)::
+
+                "/etc/init/nova-consoleauth.override"
+
+                comment         => "Disable Nova ConsoleAuth on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_nova_consoleauth");
+
+       	#
+        # Make sure that Nova NoVNCProxy runs only on the OpenStack controllers
+        # 
+        !openstack_controllers.(openstack_nodes.nova_novncproxy_is_enabled)::
+
+                "/etc/init/nova-novncproxy.override"
+
+                comment         => "Disable Nova NoVNCProxy on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_nova_novncproxy");
+
+       	#
+        # Make sure that Nova Scheduler runs only on the OpenStack controllers
+        # 
+        !openstack_controllers.(openstack_nodes.nova_scheduler_is_enabled)::
+
+               "/etc/init/nova-scheduler.override"
+
+                comment         => "Disable Nova Scheduler on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_nova_scheduler");
+
+        #
+        # Make sure that Nova API, Cert, ConsoleAuth, NoVNCProxy, Scheduler are enabled on the cluster controllers
+        # We need this, as during a switchover one of the nodes might have been
+        # a node previously, so we make sure that these services are enabled on the 
+        # newly promoted controller
+        #
+        openstack_controllers.nova_api_is_disabled::
+
+                "/etc/init/nova-api.override"
+
+                comment         => "Enable Nova API on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_nova_api");
+
+        openstack_controllers.nova_cert_is_disabled::
+
+                "/etc/init/nova-cert.override"
+
+                comment         => "Enable Nova Cert on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_nova_cert");
+
+       openstack_controllers.nova_novncproxy_is_disabled::
+
+                "/etc/init/nova-novncproxy.override"
+
+                comment         => "Enable Nova NoVNCProxy on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_nova_novncproxy");
+
+       openstack_controllers.nova_consoleauth_is_disabled::
+
+                "/etc/init/nova-consoleauth.override"
+
+                comment         => "Enable Nova ConsoleAuth on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_nova_consoleauth");
+
+       openstack_controllers.nova_scheduler_is_disabled::
+
+                "/etc/init/nova-scheduler.override"
+
+                comment         => "Enable Nova Scheduler on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_nova_scheduler");
+
+	openstack_nodes::
+
+		"/etc/sudoers"
+
+                comment         => "Grant Nova Compute user sudo rights",
+                perms           => mog("0440", "root", "root"),
+                edit_line	=> append_if_no_line("nova ALL=(ALL) NOPASSWD: ALL");
+
+		"/etc/nova/nova-compute.conf"
+
+		comment		=> "Deploy Nova Compute configuration",
+		perms		=> mog("0644", "nova", "nova"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/nova/nova-compute.conf", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_nova_compute");
+
+		"/etc/nova/api-paste.ini"
+
+                comment         => "Deploy Nova Compute Service api-paste.ini configuration to the nodes",
+                perms           => mog("0644", "nova", "nova"),
+                copy_from       => remote_copy("$(g.masterfiles)/openstack/nova/api-paste.ini", "$(g.policyhost)"),
+                classes         => if_repaired("restart_nova_api");
+	
+		"/etc/nova/nova.conf"
+
+                comment         => "Deploy Nova Compute Service nova.conf configuration to the nodes",
+                perms           => mog("0644", "nova", "nova"),
+                copy_from       => remote_copy("$(g.masterfiles)/openstack/nova/nova.conf", "$(g.policyhost)"),
+                classes         => if_repaired("restart_nova_api");
+
+processes:
+
+	openstack_controllers::
+
+		"nova-api"
+
+		comment		=> "Make sure that Nova API runs on the OpenStack controllers",
+		restart_class	=> "restart_nova_api";
+
+		"nova-cert"	
+
+		comment		=> "Make sure that Nova Cert runs on the OpenStack controllers",
+		restart_class	=> "restart_nova_cert";
+
+		"nova-scheduler"
+
+		comment		=> "Make sure that Nova Scheduler runs on the OpenStack controllers",
+		restart_class	=> "restart_nova_scheduler";
+
+		"nova-consoleauth"
+
+		comment		=> "Make sure that Nova ConsoleAuth runs on the OpenStack controllers",
+		restart_class	=> "restart_consoleauth";
+
+		"nova-novncproxy"
+
+		comment		=> "Make sure that Nova NoVNCProxy runs on the OpenStack controllers",
+		restart_class	=> "restart_novncproxy";
+
+	openstack_nodes::
+
+		"nova-compute"
+
+		comment		=> "Make sure that Nova Compute runs on the OpenStack nodes",
+		restart_class	=> "restart_nova_compute";
+		
+commands:
+
+	#
+	# Nova API
+	# 
+
+	stop_nova_api::
+
+	"/usr/sbin/service nova-api stop";
+	
+	start_nova_api::
+
+	"/usr/sbin/service nova-api start";
+
+	restart_nova_api::
+
+	"/usr/sbin/service nova-api restart";
+
+	#
+	# Nova Cert
+
+	stop_nova_cert::
+
+	"/usr/sbin/service nova-cert stop";
+	
+	start_nova_cert::
+
+	"/usr/sbin/service nova-cert start";
+
+	restart_nova_cert::
+
+	"/usr/sbin/service nova-cert restart";
+
+	#
+	# Nova ConsoleAuth
+	#
+
+	stop_nova_consoleauth::
+
+	"/usr/sbin/service nova-consoleauth stop";
+	
+	start_nova_consoleauth::
+
+	"/usr/sbin/service nova-consoleauth start";
+
+	restart_nova_consoleauth::
+
+	"/usr/sbin/service nova-consoleauth restart";
+
+	# 
+	# Nova NoVNCProxy
+	# 
+
+	stop_nova_novncproxy::
+
+	"/usr/sbin/service nova-novncproxy stop";
+	
+	start_nova_novncproxy::
+
+	"/usr/sbin/service nova-novncproxy start";
+
+	restart_nova_novncproxy::
+
+	"/usr/sbin/service nova-novncproxy restart";
+
+	#
+	# Nova Scheduler
+	#
+
+	stop_nova_scheduler::
+
+	"/usr/sbin/service nova-scheduler stop";
+	
+	start_nova_scheduler::
+
+	"/usr/sbin/service nova-scheduler start";
+
+	restart_nova_scheduler::
+
+	"/usr/sbin/service nova-scheduler restart";
+
+	#
+	# Nova Compute
+	# 
+
+	stop_nova_compute::
+
+	"/usr/sbin/service nova-compute stop";
+	
+	start_nova_compute::
+
+	"/usr/sbin/service nova-compute start";
+
+	restart_nova_compute::
+
+	"/usr/sbin/service nova-compute restart";
+
+packages:
+
+	openstack_controllers::
+
+	"nova-api"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+	
+	!openstack_controllers.openstack_nodes::
+
+	"nova-api-metadata"
+
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu5~cloud0",
+		package_method	=> generic;
+
+	openstack_nodes::
+
+	"nova-cert"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+
+	"nova-common"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+
+	"novnc"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2~20120906+dfsg-0ubuntu2~cloud0",
+		package_method	=> generic;
+
+	"nova-compute-kvm"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+
+	"nova-consoleauth"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+
+	"nova-scheduler"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+
+	"nova-novncproxy"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu3~cloud0",
+		package_method	=> generic;
+}
