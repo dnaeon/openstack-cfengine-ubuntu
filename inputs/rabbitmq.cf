@@ -1,0 +1,19 @@
+#########################################################################
+#                                                                       #
+#               rabbitmq.cf - RabbitMQ configurations			#
+#                                                                       #
+#########################################################################
+
+bundle agent rabbitmq { 
+
+files:
+
+packages:
+
+	openstack_nodes::
+
+	"rabbitmq-server"
+                package_policy  => "add",
+		package_version	=> "2.7.1-0ubuntu4",
+                package_method  => generic;
+}
