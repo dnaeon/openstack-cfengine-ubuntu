@@ -1,0 +1,38 @@
+#########################################################################
+#                                                                       #
+# 		openstack-horizon.cf - OpenStack Dashboard		#
+#                                                                       #
+#########################################################################
+
+bundle agent openstack_horizon {
+
+classes:
+
+files:
+        
+processes:
+
+commands:
+
+packages:
+
+	openstack_nodes::
+
+	"openstack-dashboard"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"memcached"
+	
+		package_policy	=> "add",
+		package_version	=> "1.4.13-0ubuntu2",
+		package_method	=> generic;
+
+	"openstack-dashboard-ubuntu-theme"
+
+		package_policy	=> "delete",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+}
