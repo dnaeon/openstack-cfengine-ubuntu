@@ -1,0 +1,81 @@
+#########################################################################
+#                                                                       #
+# 		promises.cf - Promises for updating policy files  	#
+#			      	       	   	    	   		#
+#########################################################################
+
+bundle agent update {
+
+vars:
+
+    "u_workdir"	    string => "/var/cfengine";
+    "u_policyhost"  string => "cfengine.example.org";
+
+classes:
+
+    "u_policy_servers" or => { classify("$(u_policyhost)") };
+
+files:
+
+    "$(u_workdir)/."
+
+	comment		=> "Set proper permissions of the work directory",
+	create		=> "true", 
+	perms		=> u_workdir_perms("0600");
+
+    "$(u_workdir)/masterfiles/."
+    
+	comment		=> "Set proper permissions of the $(u_workdir)/masterfiles directory",
+	create		=> "true",
+	perms		=> u_workdir_perms("0600"),
+	depth_search	=> u_recurse("inf");
+
+    u_policy_servers::
+
+	"$(u_workdir)/inputs/."
+
+	    comment		=> "Set proper permissions of input files on policy server",
+	    create		=> "true",
+	    perms		=> u_workdir_perms("0600"),
+	    depth_search	=> u_recurse("inf");
+
+    !u_policy_servers::
+
+	"$(u_workdir)/inputs/." 
+
+	    comment	    => "Update input files from policy server",
+	    perms	    => u_workdir_perms("0600"),
+	    depth_search    => u_recurse("inf"),
+	    copy_from	    => u_policy_copy("$(u_policyhost)");
+}
+
+#
+# u_workdir_perms
+# 
+
+body perms u_workdir_perms(mode) {
+    mode    => "$(mode)";
+    owners  => { "root" };
+    groups  => { "root" };
+}
+
+# 
+# u_policy_copy
+#
+
+body copy_from u_policy_copy(server) {
+    source	=> "$(u_workdir)/inputs";
+    servers	=> { "$(u_policyhost)" };
+    compare	=> "digest";
+    purge	=> "true";
+    copy_backup	=> "false";
+}
+
+# 
+# u_recurse
+#
+
+body depth_search u_recurse(d) {
+    depth   => "$(d)";
+    xdev    => "true";
+}
