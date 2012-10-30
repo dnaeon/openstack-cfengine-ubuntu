@@ -1,0 +1,25 @@
+#########################################################################
+#                                                                       #
+# 		firewall.cf - Firewall configurations		      	#
+#                                                                       #
+#########################################################################
+
+bundle agent firewall { 
+
+files:
+
+	openstack_nodes::
+
+	"/etc/sysctl.conf"
+
+	comment		=> "Enable IP forwarding on the OpenStack nodes",
+	perms		=> mog("0644", "root", "root"),
+	edit_line	=> replace_or_add('net.ipv4.ip_forward.*', 'net.ipv4.ip_forward=1'),
+	classes		=> if_repaired("reload_sysctl");
+
+commands:
+
+	reload_sysctl::
+
+	"/sbin/sysctl -p";
+}
