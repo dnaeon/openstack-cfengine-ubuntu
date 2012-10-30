@@ -1,0 +1,17 @@
+#########################################################################
+#                                                                       #
+# 		domain.cf - Domain specific configuration 		#
+#                                                                       #            
+#########################################################################
+
+bundle agent domain { 
+
+files:
+
+    "/etc/resolv.conf"
+
+	comment	    => "Copy resolv.conf file for domain $(sys.domain)",
+	perms	    => mog("0644", "root", "root"),
+	copy_from   => remote_copy("$(g.masterfiles)/domain/resolv.conf-$(sys.domain)", "$(g.policyhost)");
+}
+
