@@ -1,0 +1,21 @@
+*~
+
+# ignore cfengine3 related files which are outside the Git repo
+bin/*
+outputs/*
+lib/*
+share/*
+cf-execd.pid
+cf-serverd.pid
+*.runlog
+cf_classes.tcdb
+cf_classes.tcdb.lock
+cf_lastseen.tcdb
+cf_lastseen.tcdb.lock
+cfagent.*.log
+masterfiles/cf_promises_validated
+performance.tcdb
+performance.tcdb.lock
+promise_summary.log
+randseed
+state/*
