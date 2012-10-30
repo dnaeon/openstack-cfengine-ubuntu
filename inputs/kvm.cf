@@ -1,0 +1,102 @@
+#########################################################################
+#                                                                       #
+# 		kvm.cf - KVM hypervisor configurations 			#
+#                                                                       #
+#########################################################################
+
+bundle agent kvm {
+
+files:
+
+	kvm_hypervisors::
+
+	"/etc/modprobe.d/kvm_intel.conf"
+		
+		comment		=> "Enable nested virtualization with KVM",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("options kvm_intel nested=1");
+
+	"/etc/libvirt/qemu.conf"
+
+		comment		=> "Deploy libvirt/qemu.conf to the KVM hypervisors",
+		perms		=> mog("0644", "root", "root"),
+		copy_from       => remote_copy("$(g.masterfiles)/kvm/qemu.conf", "$(g.policyhost)"),
+		classes		=> if_repaired("virsh_delete_default_vbr");
+
+	"/etc/libvirt/libvirtd.conf"
+
+		comment		=> "Disable TLS connections in libvirt",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> replace_or_add("listen_tls.*", "listen_tls = 0"),
+		classes		=> if_repaired("restart_libvirt_bin");
+
+	"/etc/libvirt/libvirtd.conf"
+
+		comment		=> "Listen for TCP connections in libvirt",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> replace_or_add("listen_tcp.*", "listen_tcp = 1"),
+		classes		=> if_repaired("restart_libvirt_bin");
+
+	"/etc/libvirt/libvirtd.conf"
+
+		comment		=> "Disable TCP authentication in libvirt",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> replace_or_add("auth_tcp.*", 'auth_tcp = "none"'),
+		classes		=> if_repaired("restart_libvirt_bin");
+
+	"/etc/default/libvirt-bin"
+
+		comment		=> "Configure libvirt to listen on TCP",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> replace_or_add('^libvirtd_opts.*', 'libvirtd_opts="-d -l"'),
+		classes		=> if_repaired("restart_libvirt_bin");
+
+processes:
+
+	kvm_hypervisors::
+
+	"libvirtd"
+
+		comment		=> "Make sure that libvirtd is running",
+		restart_class	=> "restart_libvirt_bin";
+
+commands:
+
+	restart_libvirt_bin::
+
+	"/usr/sbin/service libvirt-bin restart";
+
+	virsh_delete_default_vbr::
+
+	"/usr/sbin/service libvirt-bin restart";
+	"/usr/bin/virsh net-destroy default";
+	"/usr/bin/virsh net-undefine default";
+
+packages:
+
+	kvm_hypervisors::
+
+	"kvm"
+		package_policy  => "add",
+		package_version	=> "1:84+dfsg-0ubuntu16+1.0+noroms+0ubuntu14.3",
+                package_method  => generic;
+
+	"libvirt-bin"
+	
+		package_policy	=> "add",
+		package_version	=> "0.9.13-0ubuntu10~cloud0",
+		package_method	=> generic;
+
+	"guestfish"
+	
+		package_policy	=> "add",
+		package_version	=> "1:1.14.8-1",
+		package_method	=> generic;
+
+	"pm-utils"
+	
+		package_policy	=> "add",
+		package_version	=> "1.4.1-9",
+		package_method	=> generic;
+}
