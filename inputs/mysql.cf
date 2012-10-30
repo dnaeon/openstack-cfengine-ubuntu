@@ -1,0 +1,44 @@
+#########################################################################
+#                                                                       #
+#               mysql.cf - MySQL database configurations		#
+#                                                                       #
+#########################################################################
+
+bundle agent mysql { 
+
+files:
+
+	mysql_servers::
+
+		"/etc/mysql/my.cnf"
+
+		comment		=> "Configure MySQL to accept all incoming requests",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> replace_or_add('bind-address.*', 'bind-address = 0.0.0.0'),
+		classes		=> if_repaired("restart_mysql_server");
+
+packages:
+
+	openstack_nodes::
+
+	"mysql-server-5.5"
+		package_policy	=> "add",
+		package_version	=> "5.5.24-0ubuntu0.12.04.1",
+		package_method	=> generic;
+
+	"mysql-client-5.5"
+                package_policy  => "add",
+		package_version	=> "5.5.24-0ubuntu0.12.04.1",
+                package_method  => generic;
+
+	"python-mysqldb"
+                package_policy  => "add",
+		package_version	=> "1.2.3-1build1",
+                package_method  => generic;
+
+commands:
+
+	restart_mysql_server::
+
+	"/usr/bin/service mysql restart";
+}
