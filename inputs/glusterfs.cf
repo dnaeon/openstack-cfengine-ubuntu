@@ -1,0 +1,41 @@
+#########################################################################
+#                                                                       #
+# 		glusterfs.cf - GlusterFS configurations			#
+#                                                                       #
+#########################################################################
+
+bundle agent glusterfs {
+
+files:
+
+processes:
+
+	glusterfs_nodes::
+
+		"glusterd"
+
+		comment		=> "Make sure that the GlusterFS daemon is running on the GlusterFS nodes",
+		restart_class	=> "restart_glusterfs_server";
+
+commands:
+
+	restart_glusterfs_server::
+
+	"/usr/sbin/service glusterfs-server restart";
+	
+packages:
+
+	glusterfs_nodes::
+
+	"glusterfs-server"
+
+		package_policy  => "add",
+		package_version	=> "3.3.1-ubuntu1~precise1",
+                package_method  => generic;
+
+	"glusterfs-client"
+
+		package_policy	=> "add",
+		package_version	=> "3.3.1-ubuntu1~precise1",
+		package_method	=> generic;
+}
