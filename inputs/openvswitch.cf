@@ -1,0 +1,49 @@
+#########################################################################
+#                                                                       #
+# 		openvswitch.cf - Open vSwitch Configurations		#
+#                                                                       #
+#########################################################################
+
+bundle agent openvswitch {
+
+classes:
+
+files:
+	
+processes:
+	
+	openstack_nodes::
+
+	"ovsdb-server"
+	
+	comment			=> "Make sure that ovsdb-server is running",
+	restart_class		=> "restart_ovs_server";
+
+	"ovs-vswitchd"
+
+	comment			=> "Make sure that ovs-vswitchd is running",
+	restart_class		=> "restart_ovs_vswitchd";
+	
+commands:
+
+	restart_ovs_server|restart_ovs_vswitchd::
+
+	"/usr/sbin/service openvswitch-switch restart";
+
+packages:
+
+	openstack_nodes::
+
+	"openvswitch-switch"
+	
+		package_policy	=> "add",
+		package_version	=> "1.4.0-1ubuntu1.3",
+		package_method	=> generic;
+
+	"openvswitch-datapath-dkms"
+	
+		package_policy	=> "add",
+		package_version	=> "1.4.0-1ubuntu1.3",
+		package_method	=> generic;
+}
+
