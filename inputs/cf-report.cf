@@ -1,0 +1,12 @@
+#########################################################################
+#                                                                       #
+# 		cf-report.cf - Cfengine 3 Reports 			#
+#									#
+#########################################################################
+
+body reporter control {
+    reports	    => { "performance", "last_seen", "monitor_history" };
+    build_directory => "$(sys.workdir)/reports";
+    report_output   => "text";
+}
+
