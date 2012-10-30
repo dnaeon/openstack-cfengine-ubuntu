@@ -1,0 +1,56 @@
+#########################################################################
+#                                                                       #
+#               packages.cf - Common packages for all systems		#
+#                                                                       #
+#########################################################################
+
+bundle agent packages { 
+
+packages:
+
+	ubuntu::
+
+	"git"
+		package_policy	=> "add",
+		package_method	=> generic;
+		
+	"emacs23"
+		package_policy	=> "add",
+		package_method	=> generic;
+		
+	"zsh"
+		package_policy	=> "add",
+		package_method	=> generic;
+		
+	"tmux"
+		package_policy	=> "add",
+		package_method	=> generic;
+		
+	"chkconfig"
+		package_policy	=> "add",
+		package_method	=> generic;
+
+	"sockstat"
+		package_policy	=> "add",
+		package_method	=> generic;
+
+	"iptraf"
+		package_policy	=> "add",
+		package_method	=> generic;
+		
+	"vlan"
+		package_policy	=> "add",
+		package_method	=> generic;
+
+	"bridge-utils"
+		package_policy	=> "add",
+		package_method	=> generic;
+
+	"python-software-properties"
+		package_policy	=> "add",
+		package_method	=> generic;
+
+	"ifenslave-2.6"
+		package_policy	=> "add",
+		package_method	=> generic;
+}
