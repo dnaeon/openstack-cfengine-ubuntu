@@ -1,0 +1,109 @@
+#########################################################################
+#                                                                       #
+# 		openstack-keystone.cf - OpenStack Identity Service	#
+#                                                                       #
+#########################################################################
+
+bundle agent openstack_keystone {
+
+classes:
+
+	#
+	# Keystone in Ubuntu uses Upstart, so we can't use chkconfig(8) here
+	# We check if a service is disabled by looking for the 'manual' keyword in /etc/init/SERVICE.override file
+	#
+	"keystone_is_disabled" expression => regline("^manual$", "/etc/init/keystone.override");
+	"keystone_is_enabled"  not	  => "keystone_is_disabled";
+
+files:
+	
+	#
+	# Make sure that Keystone is disabled on the OpenStack nodes,
+	# expect for the cluster controller
+	# 
+	!openstack_controllers.(openstack_nodes.keystone_is_enabled)::
+
+		"/etc/init/keystone.override"
+
+		comment		=> "Disable Keystone on the OpenStack nodes, except for the cluster controller",
+		create		=> "true",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> append_if_no_line("manual"),
+		classes		=> if_repaired("stop_keystone");
+
+	#
+	# Make sure that Keystone is enabled on the cluster controllers
+	# We need this, as during a switchover one of the nodes might have been
+	# a node previously, so we make sure that Keystone is enabled on the 
+	# newly promoted controller
+	#
+	openstack_controllers.keystone_is_disabled::
+
+		"/etc/init/keystone.override"
+
+		comment		=> "Enable Keystone on the OpenStack controllers",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> delete_lines_matching("^manual$"),
+		classes		=> if_repaired("start_keystone");
+
+	openstack_controllers::
+
+		"/etc/keystone/keystone.conf"
+
+		comment		=> "Configure the MySQL connection string for the OpenStack controller",
+		perms		=> mog("0644", "root", "root"),
+		edit_line	=> replace_or_add("^connection.*", "connection = mysql://keystoneUser:glanJuecsowvEecokEshthat@hv01.example.org/keystone"),
+		classes		=> if_repaired("restart_keystone");
+
+		"/etc/keystone/creds/keystonerc"
+
+		comment		=> "Deploy keystonrc file for easy sourcing",
+		create		=> "true",
+		perms		=> mog("0400", "root", "root"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/keystone/keystonerc", "$(g.policyhost)");
+
+processes:
+
+	openstack_controllers::
+
+		"keystone"
+
+		comment		=> "Make sure that Keystone runs on the OpenStack controllers",
+		restart_class	=> "restart_keystone";
+
+commands:
+
+	stop_keystone::
+
+		"/usr/sbin/service keystone stop";
+
+	start_keystone::
+
+		"/usr/sbin/service keystone start";
+
+	restart_keystone::
+
+		"/usr/sbin/service keystone restart";
+
+packages:
+
+	openstack_nodes::
+
+	"keystone"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"python-keystone"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"python-keystoneclient"
+	
+		package_policy	=> "add",
+		package_version	=> "1:0.1.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+}
