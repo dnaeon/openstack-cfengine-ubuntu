@@ -1,0 +1,167 @@
+#########################################################################
+#                                                                       #
+# 		openstack-cinder.cf - OpenStack Volume Service		#
+#                                                                       #
+#########################################################################
+
+bundle agent openstack_cinder {
+
+classes:
+
+        #
+        # OpenStack Cinder in Ubuntu uses Upstart, so we can't use chkconfig(8) here
+        # We check if a service is disabled by looking for the 'manual' keyword in /etc/init/SERVICE.override file
+        #
+        "cinder_api_is_disabled"	expression   => regline("^manual$", "/etc/init/cinder-api.override");
+        "cinder_api_is_enabled"		not          => "cinder_api_is_disabled";
+
+        "cinder_volume_is_disabled" 	expression   => regline("^manual$", "/etc/init/cinder-volume.override");
+        "cinder_volume_is_enabled"  	not          => "cinder_volume_is_disabled";
+
+files:
+        
+        #
+        # Make sure that Cinder API runs only on the OpenStack controllers
+	#
+        !openstack_controllers.(openstack_nodes.cinder_api_is_enabled)::
+
+                "/etc/init/cinder-api.override"
+
+                comment         => "Disable Cinder API on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_cinder_api");
+
+        #
+        # Make sure that Cinder Volume runs only on the OpenStack controllers
+        # 
+        !openstack_controllers.(openstack_nodes.cinder_volume_is_enabled)::
+
+                "/etc/init/cinder-volume.override"
+
+                comment         => "Disable Cinder Volume on the OpenStack nodes, except for the cluster controllers",
+                create          => "true",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => append_if_no_line("manual"),
+                classes         => if_repaired("stop_cinder_volume");
+
+        #
+        # Make sure that Cinder API and Volume are enabled on the cluster controllers
+        # We need this, as during a switchover one of the nodes might have been
+        # a node previously, so we make sure that these services are enabled on the 
+        # newly promoted controller
+        #
+        openstack_controllers.cinder_api_is_disabled::
+
+                "/etc/init/cinder-api.override"
+
+                comment         => "Enable Cinder API on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_cinder_api");
+
+        openstack_controllers.cinder_volume_is_disabled::
+
+                "/etc/init/cinder-volume.override"
+
+                comment         => "Enable Cinder Volume on the OpenStack controllers",
+                perms           => mog("0644", "root", "root"),
+                edit_line       => delete_lines_matching("^manual$"),
+                classes         => if_repaired("start_cinder_volume");
+
+	openstack_controllers::
+
+		"/etc/cinder/api-paste.ini"
+
+		comment		=> "Deploy Cinder api-paste.ini configuration",
+		perms		=> mog("0644", "cinder", "cinder"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/cinder/api-paste.ini", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_cinder_api");
+
+		"/etc/cinder/cinder.conf"
+
+		comment		=> "Deploy Cinder cinder.conf configuration",
+		perms		=> mog("0644", "cinder", "cinder"),
+		copy_from	=> remote_copy("$(g.masterfiles)/openstack/cinder/cinder.conf", "$(g.policyhost)"),
+		classes		=> if_repaired("restart_cinder_volume");
+processes:
+
+	openstack_controllers::
+
+		"cinder-api"
+
+		comment		=> "Make sure that Cinder API runs on the OpenStack controllers",
+		restart_class	=> "restart_cinder_api";
+
+		"cinder-volume"	
+
+		comment		=> "Make sure that Cinder Volume runs on the OpenStack controllers",
+		restart_class	=> "restart_cinder_volume";
+		
+commands:
+
+	stop_cinder_api::
+
+	"/usr/sbin/service cinder-api stop";
+	
+	start_cinder_api::
+
+	"/usr/sbin/service cinder-api start";
+
+	restart_cinder_api::
+
+	"/usr/sbin/service cinder-api restart";
+
+	stop_cinder_volume::
+
+	"/usr/sbin/service cinder-volume stop";
+	
+	start_cinder_volume::
+
+	"/usr/sbin/service cinder-volume start";
+
+	restart_cinder_volume::
+
+	"/usr/sbin/service cinder-volume restart";
+
+packages:
+
+	openstack_nodes::
+
+	"cinder-api"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"cinder-scheduler"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"cinder-volume"
+	
+		package_policy	=> "add",
+		package_version	=> "2012.2-0ubuntu1~cloud0",
+		package_method	=> generic;
+
+	"iscsitarget"
+	
+		package_policy	=> "add",
+		package_version	=> "1.4.20.2-5ubuntu3.1",
+		package_method	=> generic;
+
+	"open-iscsi"
+	
+		package_policy	=> "add",
+		package_version	=> "2.0.871-0ubuntu9",
+		package_method	=> generic;
+
+	"iscsitarget-dkms"
+	
+		package_policy	=> "add",
+		package_version	=> "1.4.20.2-5ubuntu3.1",
+		package_method	=> generic;
+}
