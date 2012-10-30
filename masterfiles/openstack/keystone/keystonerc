@@ -1,0 +1,4 @@
+export OS_TENANT_NAME=admin
+export OS_USERNAME=admin
+export OS_PASSWORD=Idoodinmygwyffoderyatsya
+export OS_AUTH_URL="http://hv01.example.org:5000/v2.0/"
