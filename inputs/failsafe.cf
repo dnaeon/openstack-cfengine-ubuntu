@@ -1,0 +1,27 @@
+#########################################################################
+#                                                                       #
+# 		failsafe.cf - Failsafe configuration			#
+#                                                                       #            
+#########################################################################
+
+body common control {
+
+    # Update input files on the clients
+    !f_policy_servers::
+
+	bundlesequence => { "update" };
+
+	inputs => { "update.cf" };
+}
+
+bundle common failsafe_globals {
+
+vars:
+    
+    "f_policyhost" string => "cfengine.example.org";
+
+classes:
+
+    "f_policy_servers" or => { classify("$(f_policyhost)") };
+}
+
