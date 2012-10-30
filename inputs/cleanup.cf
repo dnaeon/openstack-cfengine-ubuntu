@@ -1,0 +1,19 @@
+#########################################################################
+#                                                                       #
+# 		cleanup.cf - Cfengine 3 promises for tidying up   	#
+#                                                                       #            
+#########################################################################
+
+# A bundle for cleaning up old and not needed files and directories
+bundle agent cleanup {
+    
+files:
+
+    # Cleanup old reports
+    "$(sys.workdir)/outputs"
+    
+	comment		=> "Clean up reports older than 30 days",
+	delete		=> tidy,
+	file_select	=> days_old("30"),
+	depth_search	=> recurse("inf");
+}
