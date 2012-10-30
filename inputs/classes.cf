@@ -1,0 +1,74 @@
+#########################################################################
+#                                                                       #
+# 		classes.cf - Cfengine 3 user-defined classes		#
+#			     	      		     			#
+#########################################################################
+
+bundle common myclasses {
+
+classes: 
+	
+	#
+	# Cfengine Policy Servers
+	# 
+
+    	"policy_servers" or => {
+    	    	classify("$(g.policyhost)")
+    	};
+
+	#
+	# All hosts in the internal example.org domain
+	#
+
+    	"example_org_hosts" or => {
+		classify("cfengine.example.org"),
+		classify("mysql.example.org"),
+		classify("hv01.example.org"),
+		classify("hv02.example.org")
+    	};
+
+	# 
+	# MySQL database servers
+	#
+
+	"mysql_servers" or => { 
+		classify("mysql.example.org")
+	};
+
+	#
+	# KVM Hypervisors
+	#
+	
+	"kvm_hypervisors" or => {
+		classify("hv01.example.org"),
+		classify("hv02.example.org")
+	};
+
+	#
+	# OpenStack Controllers
+	#
+	
+	"openstack_controllers" or => {
+		classify("hv01.example.org")
+	};
+
+	#
+	# OpenStack nodes
+	#
+	# All "kvm_hypervisors" are OpenStack nodes
+	#
+	
+	"openstack_nodes" or => {
+		kvm_hypervisors
+	};
+
+	#
+	# GlusterFS nodes
+	#
+	# All "openstack_nodes" are GlusterFS nodes
+	#
+	
+	"glusterfs_nodes" or => {
+		openstack_nodes
+	};
+}
